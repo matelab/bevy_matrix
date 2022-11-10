@@ -1,11 +1,9 @@
 use std::time::Duration;
 
 use super::matrix_letter::*;
-use super::utils::*;
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 use bevy_tweening::*;
-use rand::{thread_rng, Rng};
 
 #[derive(Component, Inspectable, Default)]
 pub struct MatrixStrip {
