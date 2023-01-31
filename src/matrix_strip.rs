@@ -2,10 +2,9 @@ use std::time::Duration;
 
 use super::matrix_letter::*;
 use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
 use bevy_tweening::*;
 
-#[derive(Component, Inspectable, Default)]
+#[derive(Component, Default)]
 pub struct MatrixStrip {
     num_spawned: u32,
     max_length: u32,
@@ -17,7 +16,7 @@ pub struct MatrixStrip {
 #[derive(Component, Default)]
 pub struct SpawnTimer(Timer);
 
-#[derive(Component, Inspectable, Default)]
+#[derive(Component, Default)]
 pub struct Spawning;
 
 #[derive(Bundle)]
@@ -47,7 +46,10 @@ impl MatrixStripBundle {
                 last_spawn: None,
             },
             spawning: Spawning,
-            timer: SpawnTimer(Timer::new(Duration::from_secs_f32(0.1), true)),
+            timer: SpawnTimer(Timer::new(
+                Duration::from_secs_f32(0.1),
+                TimerMode::Repeating,
+            )),
         }
     }
 
@@ -62,7 +64,10 @@ impl MatrixStripBundle {
     }
 
     pub fn with_spawnrate(mut self, spawnrate: f32) -> Self {
-        self.timer = SpawnTimer(Timer::new(Duration::from_secs_f32(1.0 / spawnrate), true));
+        self.timer = SpawnTimer(Timer::new(
+            Duration::from_secs_f32(1.0 / spawnrate),
+            TimerMode::Repeating,
+        ));
         self
     }
 }
@@ -78,19 +83,19 @@ fn spawn(
             if let Some(last) = strip.last_spawn {
                 let tween = Tween::new(
                     EaseFunction::QuadraticOut,
-                    TweeningType::Once,
+                    //TweeningType::Once,
                     Duration::from_secs_f32(0.2),
                     MatrixLetterLens {
                         start: Color::WHITE,
                         end: Color::LIME_GREEN,
                     },
-                );
+                )
+                .with_repeat_count(RepeatCount::Finite(1));
                 commands.entity(last).insert(Animator::new(tween));
             }
             let pos = Vec3::new(0.0, -(strip.num_spawned as f32), 0.0);
             let letter = commands
-                .spawn()
-                .insert_bundle(
+                .spawn(
                     MatrixLetterBundle::new(pos)
                         .with_brightness(strip.log_scale)
                         .with_lifetime(strip.lifetime),

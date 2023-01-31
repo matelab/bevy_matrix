@@ -12,7 +12,9 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = { version = "0.8.1", features = ["dynamic"] }
+bevy = { version = "0.9", features = ["dynamic"] }
 rand = "0.8.5"
-bevy-inspector-egui = "0.13"
-bevy_tweening = "0.5"
+# bevy-inspector-egui = "0.13"
+bevy_tweening = "0.6"
+bevy_editor_pls = "0.2"
+

@@ -40,6 +40,9 @@
             lldb
             cargo-geiger
             nur.packages.${system}.wasm-server-runner
+            renderdoc
+            just
+            esptool
           ];
           build-deps = with pkgs; [
             pkgconfig

@@ -2,11 +2,10 @@ use std::time::Duration;
 
 use super::utils::*;
 use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
 use bevy_tweening::{lens::TransformScaleLens, *};
 use rand::{thread_rng, Rng};
 
-#[derive(Component, Inspectable, Default)]
+#[derive(Component, Default)]
 pub struct MatrixLetter {
     mul_color: Color,
     color: Color,
@@ -27,6 +26,7 @@ pub struct MatrixLetterBundle {
     request: MatrixLetterSpawnRequest,
 }
 
+#[derive(Resource)]
 struct MatrixLetterData {
     font: Handle<Font>,
     font_size: f32,
@@ -37,7 +37,7 @@ pub struct LetterDeath(Timer);
 
 impl Default for LetterDeath {
     fn default() -> Self {
-        Self(Timer::new(Duration::from_secs_f32(3.0), false))
+        Self(Timer::new(Duration::from_secs_f32(3.0), TimerMode::Once))
     }
 }
 
@@ -131,7 +131,7 @@ fn spawn_request_handler(
             })
             .insert(LetterDeath(Timer::new(
                 Duration::from_secs_f32(request.lifetime),
-                false,
+                TimerMode::Once,
             )))
             .remove::<MatrixLetterSpawnRequest>();
     }
@@ -153,13 +153,14 @@ fn letter_death(
         if letter_death.0.just_finished() {
             let tween = Tween::new(
                 EaseFunction::QuadraticOut,
-                TweeningType::Once,
+                //TweeningType::Once,
                 Duration::from_secs_f32(0.5),
                 TransformScaleLens {
                     start: transform.scale.clone(),
                     end: Vec3::new(0.0, 0.0, 1.0),
                 },
-            );
+            )
+            .with_repeat_count(RepeatCount::Finite(1));
             commands.entity(entity).insert(Animator::new(tween));
         }
     }
@@ -170,7 +171,7 @@ fn letter_despawn(
     query: Query<(Entity, Option<&Parent>, &Animator<Transform>)>,
 ) {
     for (entity, parent, animator) in &query {
-        if animator.progress() > 0.999 {
+        if animator.tweenable().progress() > 0.999 {
             if let Some(parent) = parent {
                 commands.entity(parent.get()).remove_children(&[entity]);
             }
