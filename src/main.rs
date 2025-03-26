@@ -100,10 +100,10 @@ fn setup(
         cam,
         BloomSettings {
             prefilter_settings: BloomPrefilterSettings {
-                threshold_softness: 0.1,
-                threshold: 0.2,
+                threshold_softness: -2.9161227,
+                threshold: -3.9751358,
             },
-            intensity: 0.15,
+            intensity: 0.8723975,
             ..Default::default()
         },
     ));
