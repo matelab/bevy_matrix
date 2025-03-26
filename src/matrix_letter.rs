@@ -47,11 +47,10 @@ pub struct MatrixLetterLens {
 }
 
 impl Lens<MatrixLetter> for MatrixLetterLens {
-    fn lerp(&mut self, target: &mut MatrixLetter, ratio: f32) {
-        target.color = self.end * ratio + self.start * (1.0 - ratio);
-        target
-            .color
-            .set_a(self.end.a() * ratio + self.start.a() * (1.0 - ratio));
+    fn lerp(&mut self, target: &mut dyn Targetable<MatrixLetter>, ratio: f32) {
+        let (s_start, s_end) = (Srgba::from(self.start), Srgba::from(self.end));
+        let col = s_end * ratio + s_start * (1.0 - ratio);
+        target.color = Color::from(col);
     }
 }
 
@@ -60,7 +59,7 @@ impl MatrixLetterBundle {
         Self {
             request: MatrixLetterSpawnRequest {
                 pos,
-                mul_color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+                mul_color: Color::srgba(1.0, 1.0, 1.0, 1.0),
                 color: Color::WHITE,
                 lifetime: 10.0,
             },
@@ -68,9 +67,12 @@ impl MatrixLetterBundle {
     }
 
     pub fn with_brightness(mut self, brightness: f32) -> Self {
-        self.request.mul_color.set_r(brightness);
-        self.request.mul_color.set_g(brightness);
-        self.request.mul_color.set_b(brightness);
+        let smc = Srgba::from(self.request.mul_color);
+        self.request.mul_color = Color::from(
+            smc.with_red(brightness)
+                .with_green(brightness)
+                .with_blue(brightness),
+        );
         self
     }
 
@@ -114,7 +116,9 @@ fn spawn_request_handler(
         let text_style = TextStyle {
             font: data.font.clone(),
             font_size: data.font_size,
-            color: Color::rgba(1.0, 1.0, 1.0, 0.0) * Into::<Vec4>::into(request.mul_color),
+            color: Color::from(Srgba::from_vec4(
+                Srgba::new(1.0, 1.0, 1.0, 0.0).to_vec4() * Srgba::from(request.mul_color).to_vec4(),
+            )),
         };
         let fade_in = commands
             .entity(entity)
@@ -122,11 +126,11 @@ fn spawn_request_handler(
                 color: request.color,
                 mul_color: request.mul_color,
             })
-            .insert_bundle(Text2dBundle {
+            .insert(Text2dBundle {
                 transform: Transform::from_scale(Vec3::splat(1.0 / data.font_size))
                     .with_translation(request.pos),
                 text: Text::from_section(make_matrix_character(), text_style.clone())
-                    .with_alignment(TextAlignment::CENTER),
+                    .with_justify(JustifyText::Center),
                 ..Default::default()
             })
             .insert(LetterDeath(Timer::new(
@@ -182,24 +186,26 @@ fn letter_despawn(
 
 fn update_color(mut query: Query<(&mut Text, &MatrixLetter), Changed<MatrixLetter>>) {
     for (mut text, letter) in &mut query {
-        text.sections[0].style.color = letter.color * Into::<Vec4>::into(letter.mul_color)
+        text.sections[0].style.color = Color::from(Srgba::from_vec4(
+            Srgba::from(letter.color).to_vec4() * Srgba::from(letter.mul_color).to_vec4(),
+        ))
     }
 }
 
 impl Plugin for MatrixLetterPlugin {
     fn build(&self, app: &mut App) {
-        let asset_server = app.world.get_resource::<AssetServer>().unwrap();
+        let asset_server = app.world().get_resource::<AssetServer>().unwrap();
         let font = asset_server.load("fonts/matrix.ttf");
 
         app.insert_resource(MatrixLetterData {
             font,
             font_size: 64.0,
         })
-        .add_system(change_text)
-        .add_system(spawn_request_handler)
-        .add_system(letter_death)
-        .add_system(update_color)
-        .add_system(letter_despawn)
-        .add_system(component_animator_system::<MatrixLetter>);
+        .add_systems(Update, change_text)
+        .add_systems(Update, spawn_request_handler)
+        .add_systems(Update, letter_death)
+        .add_systems(Update, update_color)
+        .add_systems(Update, letter_despawn)
+        .add_systems(Update, component_animator_system::<MatrixLetter>);
     }
 }

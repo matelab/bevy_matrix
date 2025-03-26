@@ -4,7 +4,7 @@ use bevy::render::render_resource::{
     RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
 };
 use bevy::render::renderer::RenderContext;
-use bevy::render::RenderStage;
+use bevy::render::RenderSet;
 use bevy::{
     core_pipeline::fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     ecs::query::QueryItem,
@@ -40,11 +40,12 @@ impl Default for MatrixPost {
 }
 
 impl ExtractComponent for MatrixPost {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
+    type QueryData = &'static Self;
+    type QueryFilter = With<Camera>;
+    type Out = MatrixPost;
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
-        item.clone()
+    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self> {
+        Some(item.clone())
     }
 }
 
@@ -53,17 +54,17 @@ pub const MATRIX_POST_NODE: &str = "matrix_post_node";
 pub struct MatrixPostPlugin;
 impl Plugin for MatrixPostPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ExtractComponentPlugin::<MatrixPost>::default());
+        app.add_plugins(ExtractComponentPlugin::<MatrixPost>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+            Some(render_app) => render_app,
+            None => return,
         };
 
         render_app
             .init_resource::<MatrixPostPipeline>()
             .init_resource::<SpecializedRenderPipelines<MatrixPostPipeline>>()
-            .add_system_to_stage(RenderStage::Prepare, prepare_matrix_post_pipelines);
+            .add_systems(prepare_matrix_post_pipelines.in_base_set(RenderSet::Prepare));
     }
 }
 

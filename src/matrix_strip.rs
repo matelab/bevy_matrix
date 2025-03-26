@@ -21,7 +21,6 @@ pub struct Spawning;
 
 #[derive(Bundle)]
 pub struct MatrixStripBundle {
-    #[bundle]
     transform: SpatialBundle,
     strip: MatrixStrip,
     spawning: Spawning,
@@ -87,7 +86,7 @@ fn spawn(
                     Duration::from_secs_f32(0.2),
                     MatrixLetterLens {
                         start: Color::WHITE,
-                        end: Color::LIME_GREEN,
+                        end: Color::srgb(0.1, 0.8, 0.3),
                     },
                 )
                 .with_repeat_count(RepeatCount::Finite(1));
@@ -136,9 +135,9 @@ fn move_strip(mut query: Query<(&MatrixStrip, &mut Transform)>, time: Res<Time>)
 
 impl Plugin for MatrixStripPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(spawn)
-            .add_system(stop_spawn)
-            .add_system(move_strip)
-            .add_system(strip_clean);
+        app.add_systems(Update, spawn)
+            .add_systems(Update, stop_spawn)
+            .add_systems(Update, move_strip)
+            .add_systems(Update, strip_clean);
     }
 }

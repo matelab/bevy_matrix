@@ -7,7 +7,7 @@ pub struct MatrixFieldPlugin;
 fn spawn_strips(mut commands: Commands, time: Res<Time>) {
     let mut rng = thread_rng();
     if exponential_event(0.05, time.delta_seconds()) {
-        commands.spawn_bundle(
+        commands.spawn(
             MatrixStripBundle::new(Vec3::new(
                 rng.gen_range(-15.0..18.0),
                 rng.gen_range(0.0..8.0),
@@ -21,6 +21,6 @@ fn spawn_strips(mut commands: Commands, time: Res<Time>) {
 
 impl Plugin for MatrixFieldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(spawn_strips);
+        app.add_systems(Update, spawn_strips);
     }
 }

@@ -1,16 +1,16 @@
 mod matrix_field;
 mod matrix_letter;
 mod matrix_strip;
-mod post;
+//mod post;
 mod utils;
 
 use matrix_field::*;
 use matrix_letter::*;
 use matrix_strip::*;
-use post::*;
+//use post::*;
 
 use bevy::{
-    core_pipeline::bloom::{self, BloomSettings},
+    core_pipeline::bloom::{self, BloomPrefilterSettings, BloomSettings},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     render::{
@@ -21,7 +21,7 @@ use bevy::{
         view::RenderLayers,
     },
     sprite::{Material2dPlugin, MaterialMesh2dBundle},
-    window::{PresentMode, WindowMode, WindowResized},
+    window::{PresentMode, PrimaryWindow, WindowMode, WindowResized},
 };
 use bevy_editor_pls::prelude::*;
 use bevy_tweening::*;
@@ -30,37 +30,37 @@ fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 title: "Matrix".to_string(),
                 mode: WindowMode::BorderlessFullscreen,
                 present_mode: PresentMode::AutoVsync,
                 ..Default::default()
-            },
+            }),
             ..Default::default()
         }))
-        .add_plugin(TweeningPlugin)
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugin(MatrixLetterPlugin)
-        .add_plugin(MatrixStripPlugin)
-        .add_plugin(MatrixFieldPlugin)
+        .add_plugins(TweeningPlugin)
+        .add_plugins(LogDiagnosticsPlugin::default())
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .add_plugins(MatrixLetterPlugin)
+        .add_plugins(MatrixStripPlugin)
+        .add_plugins(MatrixFieldPlugin)
         //.add_plugin(PostPlugin)
-        .add_system(bevy::window::close_on_esc)
-        .add_startup_system(setup)
+        .add_systems(Update, close_on_esc)
+        .add_systems(Startup, setup)
         //.add_plugin(WorldInspectorPlugin::default())
-        .add_plugin(EditorPlugin)
-        .add_system(update_bloom_settings)
+        //.add_plugins(EditorPlugin::default())
+        .add_systems(Update, update_bloom_settings)
         .run();
 }
 
 fn setup(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
-    windows: Res<Windows>,
+    primary_window: Query<&Window, With<PrimaryWindow>>,
     mut meshes: ResMut<Assets<Mesh>>,
     //mut post_materials: ResMut<Assets<PostProcessingMaterial>>,
 ) {
-    let window = windows.get_primary().unwrap();
+    let window = primary_window.single();
 
     let size = Extent3d {
         width: 3840,
@@ -78,6 +78,7 @@ fn setup(
             usage: TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_DST
                 | TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[TextureFormat::Bgra8UnormSrgb],
         },
         ..default()
     };
@@ -98,9 +99,10 @@ fn setup(
     commands.spawn((
         cam,
         BloomSettings {
-            threshold: 0.2,
-            scale: 0.6,
-            knee: 0.1,
+            prefilter_settings: BloomPrefilterSettings {
+                threshold_softness: 0.1,
+                threshold: 0.2,
+            },
             intensity: 0.15,
             ..Default::default()
         },
@@ -148,7 +150,7 @@ fn setup(
 
 fn resize(resize_event: Res<Events<WindowResized>>) {
     let mut reader = resize_event.get_reader();
-    for e in reader.iter(&resize_event) {
+    for e in reader.read(&resize_event) {
         let mut size = Extent3d {
             width: e.width as u32,
             height: e.height as u32,
@@ -159,45 +161,53 @@ fn resize(resize_event: Res<Events<WindowResized>>) {
 
 fn update_bloom_settings(
     mut camera: Query<&mut BloomSettings>,
-    keycode: Res<Input<KeyCode>>,
+    keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
     let mut bloom_settings = camera.single_mut();
 
     let dt = time.delta_seconds();
 
-    if keycode.pressed(KeyCode::Q) {
-        bloom_settings.threshold -= dt;
+    if keycode.pressed(KeyCode::KeyQ) {
+        bloom_settings.prefilter_settings.threshold -= dt;
     }
-    if keycode.pressed(KeyCode::W) {
-        bloom_settings.threshold += dt;
-    }
-
-    if keycode.pressed(KeyCode::R) {
-        bloom_settings.knee -= dt;
-    }
-    if keycode.pressed(KeyCode::T) {
-        bloom_settings.knee += dt;
+    if keycode.pressed(KeyCode::KeyW) {
+        bloom_settings.prefilter_settings.threshold += dt;
     }
 
-    if keycode.pressed(KeyCode::A) {
-        bloom_settings.scale -= dt;
+    if keycode.pressed(KeyCode::KeyR) {
+        bloom_settings.prefilter_settings.threshold_softness -= dt;
     }
-    if keycode.pressed(KeyCode::S) {
-        bloom_settings.scale += dt;
+    if keycode.pressed(KeyCode::KeyT) {
+        bloom_settings.prefilter_settings.threshold_softness += dt;
     }
 
-    if keycode.pressed(KeyCode::D) {
+    if keycode.pressed(KeyCode::KeyD) {
         bloom_settings.intensity -= dt;
     }
-    if keycode.pressed(KeyCode::F) {
+    if keycode.pressed(KeyCode::KeyF) {
         bloom_settings.intensity += dt;
     }
     println!(
-        "I: {}, K: {}, S: {}, T: {}",
+        "I: {}, K: {}, T: {}",
         bloom_settings.intensity,
-        bloom_settings.knee,
-        bloom_settings.scale,
-        bloom_settings.threshold
+        bloom_settings.prefilter_settings.threshold_softness,
+        bloom_settings.prefilter_settings.threshold
     );
+}
+
+pub fn close_on_esc(
+    mut commands: Commands,
+    focused_windows: Query<(Entity, &Window)>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    for (window, focus) in focused_windows.iter() {
+        if !focus.focused {
+            continue;
+        }
+
+        if input.just_pressed(KeyCode::Escape) {
+            commands.entity(window).despawn();
+        }
+    }
 }
